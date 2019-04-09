@@ -3419,6 +3419,7 @@ static int mlxsw_sp_port_min_bw_set(struct mlxsw_sp_port *mlxsw_sp_port,
 			    next_index);
 	mlxsw_reg_qeec_mise_set(qeec_pl, true);
 	mlxsw_reg_qeec_min_shaper_rate_set(qeec_pl, minrate);
+	mlxsw_reg_qeec_min_shaper_bs_set(qeec_pl, 11); /* 128 KB */
 
 	if (mlxsw_sp_port->local_port == 1)
 		printk(KERN_WARNING "qeec %s hr %d index %d next %d minrate %d\n",
