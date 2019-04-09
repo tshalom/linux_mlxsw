@@ -3369,6 +3369,9 @@ int mlxsw_sp_port_ets_set(struct mlxsw_sp_port *mlxsw_sp_port,
 	mlxsw_reg_qeec_de_set(qeec_pl, true);
 	mlxsw_reg_qeec_dwrr_set(qeec_pl, dwrr);
 	mlxsw_reg_qeec_dwrr_weight_set(qeec_pl, dwrr_weight);
+	if (mlxsw_sp_port->local_port == 1)
+		printk(KERN_WARNING "qeec %s hr %d index %d next %d dwrr %d weight %d\n",
+		       mlxsw_sp_port->dev->name, hr, index, next_index, dwrr, dwrr_weight);
 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(qeec), qeec_pl);
 }
 
@@ -3398,8 +3401,12 @@ int mlxsw_sp_port_ets_maxrate_set(struct mlxsw_sp_port *mlxsw_sp_port,
 			    next_index);
 	mlxsw_reg_qeec_mase_set(qeec_pl, true);
 	mlxsw_reg_qeec_max_shaper_rate_set(qeec_pl, maxrate);
+	if (mlxsw_sp_port->local_port == 1)
+		printk(KERN_WARNING "qeec %s hr %d index %d next %d maxrate %d\n",
+		       mlxsw_sp_port->dev->name, hr, index, next_index, maxrate);
 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(qeec), qeec_pl);
 }
+
 
 static int mlxsw_sp_port_min_bw_set(struct mlxsw_sp_port *mlxsw_sp_port,
 				    enum mlxsw_reg_qeec_hr hr, u8 index,
@@ -3413,6 +3420,9 @@ static int mlxsw_sp_port_min_bw_set(struct mlxsw_sp_port *mlxsw_sp_port,
 	mlxsw_reg_qeec_mise_set(qeec_pl, true);
 	mlxsw_reg_qeec_min_shaper_rate_set(qeec_pl, minrate);
 
+	if (mlxsw_sp_port->local_port == 1)
+		printk(KERN_WARNING "qeec %s hr %d index %d next %d minrate %d\n",
+		       mlxsw_sp_port->dev->name, hr, index, next_index, minrate);
 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(qeec), qeec_pl);
 }
 
@@ -3520,6 +3530,9 @@ static int mlxsw_sp_port_tc_mc_mode_set(struct mlxsw_sp_port *mlxsw_sp_port,
 	char qtctm_pl[MLXSW_REG_QTCTM_LEN];
 
 	mlxsw_reg_qtctm_pack(qtctm_pl, mlxsw_sp_port->local_port, enable);
+	if (mlxsw_sp_port->local_port == 1)
+		printk(KERN_WARNING "qtctm %s enable %d\n",
+		       mlxsw_sp_port->dev->name, enable);
 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(qtctm), qtctm_pl);
 }
 
