@@ -3372,6 +3372,21 @@ int mlxsw_sp_port_ets_set(struct mlxsw_sp_port *mlxsw_sp_port,
 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(qeec), qeec_pl);
 }
 
+static int mlxsw_sp_port_ptps_set(struct mlxsw_sp_port *mlxsw_sp_port,
+				  enum mlxsw_reg_qeec_hr hr, u8 index,
+				  u8 next_index, bool ptps)
+{
+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
+	char qeec_pl[MLXSW_REG_QEEC_LEN];
+
+	mlxsw_reg_qeec_pack(qeec_pl, mlxsw_sp_port->local_port, hr, index,
+			    next_index);
+	mlxsw_reg_qeec_ptps_set(qeec_pl, ptps);
+	printk(KERN_WARNING "qeec %s hr %d index %d next %d ptps %d\n",
+	       mlxsw_sp_port->dev->name, hr, index, next_index, ptps);
+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(qeec), qeec_pl);
+}
+
 int mlxsw_sp_port_ets_maxrate_set(struct mlxsw_sp_port *mlxsw_sp_port,
 				  enum mlxsw_reg_qeec_hr hr, u8 index,
 				  u8 next_index, u32 maxrate)
@@ -5835,16 +5850,51 @@ static int mlxsw_sp_netdevice_bridge_vlan_event(struct net_device *vlan_dev,
 	return 0;
 }
 
+static void hook(struct net_device *real_dev, u16 vid,
+		 unsigned long event, void *ptr)
+{
+	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(real_dev);
+	int err;
+
+	if (vid != 1234)
+		return;
+
+	switch (event) {
+	case NETDEV_UP:
+		err = mlxsw_sp_port_ptps_set(mlxsw_sp_port,
+					     MLXSW_REG_QEEC_HIERARCY_PORT, 0, 0,
+					     true);
+		break;
+	case NETDEV_DOWN:
+		err = mlxsw_sp_port_ptps_set(mlxsw_sp_port,
+					     MLXSW_REG_QEEC_HIERARCY_PORT, 0, 0,
+					     false);
+		if (!err)
+			err = mlxsw_sp_port_ets_maxrate_set(mlxsw_sp_port,
+							    MLXSW_REG_QEEC_HIERARCY_PORT, 0, 0,
+							    MLXSW_REG_QEEC_MAS_DIS);
+		break;
+	default:
+		return;
+	}
+
+	if (err)
+		printk(KERN_WARNING "err\n");
+	else
+		printk(KERN_WARNING "OK\n");
+}
+
 static int mlxsw_sp_netdevice_vlan_event(struct net_device *vlan_dev,
 					 unsigned long event, void *ptr)
 {
 	struct net_device *real_dev = vlan_dev_real_dev(vlan_dev);
 	u16 vid = vlan_dev_vlan_id(vlan_dev);
 
-	if (mlxsw_sp_port_dev_check(real_dev))
+	if (mlxsw_sp_port_dev_check(real_dev)) {
+		hook(real_dev, vid, event, ptr);
 		return mlxsw_sp_netdevice_port_vlan_event(vlan_dev, real_dev,
 							  event, ptr, vid);
-	else if (netif_is_lag_master(real_dev))
+	} else if (netif_is_lag_master(real_dev))
 		return mlxsw_sp_netdevice_lag_port_vlan_event(vlan_dev,
 							      real_dev, event,
 							      ptr, vid);
