@@ -3520,6 +3520,16 @@ enum {
 	MLXSW_REG_QEEC_PACKETS_MODE,
 };
 
+/* reg_qeec_ptps
+ * PTP shaper.
+ * 0 - regular shaper mode
+ * 1 - PTP oriented shaper
+ * Allowed only for hierarchy 0
+ * Not supported for CPU port
+ * Access: RW
+ */
+MLXSW_ITEM32(reg, qeec, ptps, 0x0C, 29, 1);
+
 /* reg_qeec_pb
  * Packets or bytes mode.
  * 0 - Bytes mode
