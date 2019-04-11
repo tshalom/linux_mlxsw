@@ -31,6 +31,8 @@ start_traffic()
 	local dip=$1; shift
 	local dmac=$1; shift
 
+	echo $MZ $h_in -p 8000 -A $sip -B $dip -c 0 \
+		-a own -b $dmac -t udp -q
 	$MZ $h_in -p 8000 -A $sip -B $dip -c 0 \
 		-a own -b $dmac -t udp -q &
 	sleep 1
