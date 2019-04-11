@@ -151,6 +151,7 @@ switch_create()
 
 	# Make sure that ingress quotas are smaller than egress so that there is
 	# room for both streams of traffic to be admitted to shared buffer.
+	# xxx adapt to new qos_lib APIs.
 	devlink_pool_size_thtype_set 0 dynamic 10000000
 	devlink_pool_size_thtype_set 4 dynamic 10000000
 
