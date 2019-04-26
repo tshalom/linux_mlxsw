@@ -9116,6 +9116,40 @@ static inline void mlxsw_reg_mprs_pack(char *payload, u16 parsing_depth,
 	mlxsw_reg_mprs_vxlan_udp_dport_set(payload, vxlan_udp_dport);
 }
 
+/* MTPPPC - Time Precision Packet Port Configuration
+ * -------------------------------------------------
+ * Reserved when Spectrum-2.
+ */
+#define MLXSW_REG_MTPPPC_ID 0x9090
+#define MLXSW_REG_MTPPPC_LEN 0x28
+
+MLXSW_REG_DEFINE(mtpppc, MLXSW_REG_MTPPPC_ID, MLXSW_REG_MTPPPC_LEN);
+
+/* reg_mtpppc_ing_timestamp_message_type
+ * Bitwise vector of PTP message types to timestamp at ingress.
+ * MessageType field as defined by IEEE 1588
+ * Each bit corresponds to a value (e.g. Bit0: Sync, Bit1: Delay_Req)
+ * Default all 0
+ * Access: RW
+ */
+MLXSW_ITEM32(reg, mtpppc, ing_timestamp_message_type, 0x08, 0, 16);
+
+/* reg_mtpppc_egr_timestamp_message_type
+ * Bitwise vector of PTP message types to timestamp at egress.
+ * MessageType field as defined by IEEE 1588
+ * Each bit corresponds to a value (e.g. Bit0: Sync, Bit1: Delay_Req)
+ * Default all 0
+ * Access: RW
+ */
+MLXSW_ITEM32(reg, mtpppc, egr_timestamp_message_type, 0x08, 0, 16);
+
+static inline void mlxsw_reg_mtpppc_pack(char *payload, u16 ing, u16 egr)
+{
+	MLXSW_REG_ZERO(mtpppc, payload);
+	mlxsw_reg_mtpppc_ing_timestamp_message_type_set(payload, ing);
+	mlxsw_reg_mtpppc_egr_timestamp_message_type_set(payload, egr);
+}
+
 /* TNGCR - Tunneling NVE General Configuration Register
  * ----------------------------------------------------
  * The TNGCR register is used for setting up the NVE Tunneling configuration.
@@ -10132,6 +10166,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
 	MLXSW_REG(mcda),
 	MLXSW_REG(mgpc),
 	MLXSW_REG(mprs),
+	MLXSW_REG(mtpppc),
 	MLXSW_REG(tngcr),
 	MLXSW_REG(tnumt),
 	MLXSW_REG(tnqcr),
