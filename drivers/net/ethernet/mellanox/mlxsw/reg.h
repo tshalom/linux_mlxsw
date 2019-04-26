@@ -9150,6 +9150,50 @@ static inline void mlxsw_reg_mtpppc_pack(char *payload, u16 ing, u16 egr)
 	mlxsw_reg_mtpppc_egr_timestamp_message_type_set(payload, egr);
 }
 
+/* MTPCPC - Time Precision Correction Port Configuration Register
+ * --------------------------------------------------------------
+ */
+#define MLXSW_REG_MTPCPC_ID 0x9093
+#define MLXSW_REG_MTPCPC_LEN 0x18
+
+MLXSW_REG_DEFINE(mtpcpc, MLXSW_REG_MTPCPC_ID, MLXSW_REG_MTPCPC_LEN);
+
+/* reg_mtpcpc_pport
+ * Per port:
+ * 0: config is global. When reading - local_port is reported as 1
+ * 1: config is per port
+ * Access: Index
+ */
+MLXSW_ITEM32(reg, mtpcpc, pport, 0x00, 31, 1);
+
+/* reg_mtpcpc_local_port
+ * local_port
+ * Supported to/from CPU port
+ * Reserved when pport = 0
+ * Access: Index
+ */
+MLXSW_ITEM32(reg, mtpcpc, local_port, 0x00, 16, 8);
+
+/* reg_mtpcpc_trap_message_type
+ * Bitwise vector of PTP message types to allow trap by PTP traps. This is a
+ * necessary but non-sufficient condition for the PTP traps. See MTPTPT.
+ * MessageType field as defined by IEEE 1588
+ * Each bit corresponds to a value (e.g. Bit0: Sync, Bit1: Delay_Req)
+ * Reserved when local_port is CPU port
+ * Default all 0
+ * Access: RW
+ */
+MLXSW_ITEM32(reg, mtpcpc, trap_message_type, 0x04, 0, 16);
+
+static inline void mlxsw_reg_mtpcpc_pack(char *payload, u8 local_port,
+					 u16 trap_message_type)
+{
+	MLXSW_REG_ZERO(mtpcpc, payload);
+	mlxsw_reg_mtpcpc_pport_set(payload, 1);
+	mlxsw_reg_mtpcpc_local_port_set(payload, local_port);
+	mlxsw_reg_mtpcpc_trap_message_type_set(payload, trap_message_type);
+}
+
 /* TNGCR - Tunneling NVE General Configuration Register
  * ----------------------------------------------------
  * The TNGCR register is used for setting up the NVE Tunneling configuration.
@@ -10167,6 +10211,7 @@ static const struct mlxsw_reg_info *mlxsw_reg_infos[] = {
 	MLXSW_REG(mgpc),
 	MLXSW_REG(mprs),
 	MLXSW_REG(mtpppc),
+	MLXSW_REG(mtpcpc),
 	MLXSW_REG(tngcr),
 	MLXSW_REG(tnumt),
 	MLXSW_REG(tnqcr),
