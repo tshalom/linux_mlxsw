@@ -4233,6 +4233,9 @@ static const struct mlxsw_listener mlxsw_sp_listener[] = {
 	MLXSW_SP_RXL_NO_MARK(NVE_DECAP_ARP, TRAP_TO_CPU, ARP, false),
 };
 
+static const struct mlxsw_listener mlxsw_sp1_listener[] = {
+};
+
 static int mlxsw_sp_cpu_policers_set(struct mlxsw_core *mlxsw_core)
 {
 	char qpcr_pl[MLXSW_REG_QPCR_LEN];
@@ -4658,6 +4661,7 @@ static int mlxsw_sp1_init(struct mlxsw_core *mlxsw_core,
 			  const struct mlxsw_bus_info *mlxsw_bus_info)
 {
 	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
+	int err;
 
 	mlxsw_sp->req_rev = &mlxsw_sp1_fw_rev;
 	mlxsw_sp->fw_filename = MLXSW_SP1_FW_FILENAME;
@@ -4672,7 +4676,29 @@ static int mlxsw_sp1_init(struct mlxsw_core *mlxsw_core,
 	mlxsw_sp->sb_vals = &mlxsw_sp1_sb_vals;
 	mlxsw_sp->port_type_speed_ops = &mlxsw_sp1_port_type_speed_ops;
 
-	return mlxsw_sp_init(mlxsw_core, mlxsw_bus_info);
+	err = mlxsw_sp_init(mlxsw_core, mlxsw_bus_info);
+	if (err)
+		return err;
+
+	err = __mlxsw_sp_traps_init(mlxsw_sp, mlxsw_sp1_listener,
+				    ARRAY_SIZE(mlxsw_sp1_listener));
+	if (err)
+		goto err_traps_init;
+
+	return 0;
+
+err_traps_init:
+	mlxsw_sp_fini(mlxsw_core);
+	return err;
+}
+
+static void mlxsw_sp1_fini(struct mlxsw_core *mlxsw_core)
+{
+	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
+
+	__mlxsw_sp_traps_fini(mlxsw_sp, mlxsw_sp1_listener,
+			      ARRAY_SIZE(mlxsw_sp1_listener));
+	mlxsw_sp_fini(mlxsw_core);
 }
 
 static int mlxsw_sp2_init(struct mlxsw_core *mlxsw_core,
@@ -5026,7 +5052,7 @@ static struct mlxsw_driver mlxsw_sp1_driver = {
 	.kind				= mlxsw_sp1_driver_name,
 	.priv_size			= sizeof(struct mlxsw_sp),
 	.init				= mlxsw_sp1_init,
-	.fini				= mlxsw_sp_fini,
+	.fini				= mlxsw_sp1_fini,
 	.basic_trap_groups_set		= mlxsw_sp_basic_trap_groups_set,
 	.port_split			= mlxsw_sp_port_split,
 	.port_unsplit			= mlxsw_sp_port_unsplit,
