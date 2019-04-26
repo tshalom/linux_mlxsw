@@ -4615,6 +4615,27 @@ err_fids_init:
 	return err;
 }
 
+static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
+{
+	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
+
+	mlxsw_sp_ports_remove(mlxsw_sp);
+	mlxsw_sp_dpipe_fini(mlxsw_sp);
+	unregister_netdevice_notifier(&mlxsw_sp->netdevice_nb);
+	mlxsw_sp_router_fini(mlxsw_sp);
+	mlxsw_sp_acl_fini(mlxsw_sp);
+	mlxsw_sp_nve_fini(mlxsw_sp);
+	mlxsw_sp_afa_fini(mlxsw_sp);
+	mlxsw_sp_counter_pool_fini(mlxsw_sp);
+	mlxsw_sp_switchdev_fini(mlxsw_sp);
+	mlxsw_sp_span_fini(mlxsw_sp);
+	mlxsw_sp_lag_fini(mlxsw_sp);
+	mlxsw_sp_buffers_fini(mlxsw_sp);
+	mlxsw_sp_traps_fini(mlxsw_sp);
+	mlxsw_sp_fids_fini(mlxsw_sp);
+	mlxsw_sp_kvdl_fini(mlxsw_sp);
+}
+
 static int mlxsw_sp1_init(struct mlxsw_core *mlxsw_core,
 			  const struct mlxsw_bus_info *mlxsw_bus_info)
 {
@@ -4653,27 +4674,6 @@ static int mlxsw_sp2_init(struct mlxsw_core *mlxsw_core,
 	mlxsw_sp->port_type_speed_ops = &mlxsw_sp2_port_type_speed_ops;
 
 	return mlxsw_sp_init(mlxsw_core, mlxsw_bus_info);
-}
-
-static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
-{
-	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
-
-	mlxsw_sp_ports_remove(mlxsw_sp);
-	mlxsw_sp_dpipe_fini(mlxsw_sp);
-	unregister_netdevice_notifier(&mlxsw_sp->netdevice_nb);
-	mlxsw_sp_router_fini(mlxsw_sp);
-	mlxsw_sp_acl_fini(mlxsw_sp);
-	mlxsw_sp_nve_fini(mlxsw_sp);
-	mlxsw_sp_afa_fini(mlxsw_sp);
-	mlxsw_sp_counter_pool_fini(mlxsw_sp);
-	mlxsw_sp_switchdev_fini(mlxsw_sp);
-	mlxsw_sp_span_fini(mlxsw_sp);
-	mlxsw_sp_lag_fini(mlxsw_sp);
-	mlxsw_sp_buffers_fini(mlxsw_sp);
-	mlxsw_sp_traps_fini(mlxsw_sp);
-	mlxsw_sp_fids_fini(mlxsw_sp);
-	mlxsw_sp_kvdl_fini(mlxsw_sp);
 }
 
 /* Per-FID flood tables are used for both "true" 802.1D FIDs and emulated
