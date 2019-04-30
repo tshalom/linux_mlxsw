@@ -136,6 +136,7 @@ struct mlxsw_sp_acl_tcam_ops;
 struct mlxsw_sp_nve_ops;
 struct mlxsw_sp_sb_vals;
 struct mlxsw_sp_port_type_speed_ops;
+struct mlxsw_sp_ptp_ops;
 
 struct mlxsw_sp {
 	struct mlxsw_sp_port **ports;
@@ -172,6 +173,7 @@ struct mlxsw_sp {
 	const struct mlxsw_sp_rif_ops **rif_ops_arr;
 	const struct mlxsw_sp_sb_vals *sb_vals;
 	const struct mlxsw_sp_port_type_speed_ops *port_type_speed_ops;
+	const struct mlxsw_sp_ptp_ops *ptp_ops;
 };
 
 static inline struct mlxsw_sp_upper *
@@ -259,6 +261,9 @@ struct mlxsw_sp_port {
 	unsigned acl_rule_count;
 	struct mlxsw_sp_acl_block *ing_acl_block;
 	struct mlxsw_sp_acl_block *eg_acl_block;
+	struct {
+		struct hwtstamp_config hwtstamp_config;
+	} ptp;
 };
 
 struct mlxsw_sp_port_type_speed_ops {
@@ -435,6 +440,8 @@ struct mlxsw_sp_fid *mlxsw_sp_bridge_fid_get(struct mlxsw_sp *mlxsw_sp,
 extern struct notifier_block mlxsw_sp_switchdev_notifier;
 
 /* spectrum.c */
+void mlxsw_sp_rx_listener_no_mark_func(struct sk_buff *skb,
+				       u8 local_port, void *priv);
 int mlxsw_sp_port_ets_set(struct mlxsw_sp_port *mlxsw_sp_port,
 			  enum mlxsw_reg_qeec_hr hr, u8 index, u8 next_index,
 			  bool dwrr, u8 dwrr_weight);
@@ -924,5 +931,32 @@ int mlxsw_sp_port_nve_init(struct mlxsw_sp_port *mlxsw_sp_port);
 void mlxsw_sp_port_nve_fini(struct mlxsw_sp_port *mlxsw_sp_port);
 int mlxsw_sp_nve_init(struct mlxsw_sp *mlxsw_sp);
 void mlxsw_sp_nve_fini(struct mlxsw_sp *mlxsw_sp);
+
+/* spectrum_ptp.c */
+struct mlxsw_sp_ptp_ops {
+	int (*init)(struct mlxsw_sp *mlxsw_sp);
+	void (*fini)(struct mlxsw_sp *mlxsw_sp);
+	int (*hwtstamp_get)(struct mlxsw_sp_port *mlxsw_sp_port,
+			    struct hwtstamp_config *config);
+	int (*hwtstamp_set)(struct mlxsw_sp_port *mlxsw_sp_port,
+			    struct hwtstamp_config *config);
+	void (*recv)(struct mlxsw_sp *mlxsw_sp,
+		     struct sk_buff *skb, u8 local_port,
+		     int trap_id);
+};
+
+// xxx how to initialize this for disabled PTP
+extern const struct mlxsw_sp_ptp_ops mlxsw_sp1_ptp_ops;
+extern const struct mlxsw_sp_ptp_ops mlxsw_sp2_ptp_ops;
+
+struct mlxsw_sp1_ptp_timestamp {
+	u8 domain_number;
+	u8 message_type;
+	u16 sequence_id;
+	u64 timestamp;
+};
+
+void mlxsw_sp1_ptp_timestamp_recv(struct mlxsw_sp_port *mlxsw_sp_port,
+				  const struct mlxsw_sp1_ptp_timestamp *ts);
 
 #endif

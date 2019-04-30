@@ -5365,6 +5365,8 @@ enum mlxsw_reg_htgt_trap_group {
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_MLD,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_IPV6_ND,
 	MLXSW_REG_HTGT_TRAP_GROUP_SP_LBERROR,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_PTP0,
+	MLXSW_REG_HTGT_TRAP_GROUP_SP_PTP1,
 };
 
 /* reg_htgt_trap_group
@@ -9116,6 +9118,32 @@ static inline void mlxsw_reg_mprs_pack(char *payload, u16 parsing_depth,
 	mlxsw_reg_mprs_vxlan_udp_dport_set(payload, vxlan_udp_dport);
 }
 
+/* MOGCR - Monitoring Global Configuration Register
+ * ------------------------------------------------
+ */
+#define MLXSW_REG_MOGCR_ID 0x9086
+#define MLXSW_REG_MOGCR_LEN 0x20
+
+MLXSW_REG_DEFINE(mogcr, MLXSW_REG_MOGCR_ID, MLXSW_REG_MOGCR_LEN);
+
+/* reg_mogcr_ptp_iftc
+ * PTP Ingress FIFO Trap Clear
+ * The PTP_ING_FIFO trap provides MTPPTR with clr according
+ * to this value. Default 0.
+ * Reserved when IB switches and when SwitchX/-2, Spectrum-2
+ * Access: RW
+ */
+MLXSW_ITEM32(reg, mogcr, ptp_iftc, 0x00, 1, 1);
+
+/* reg_mogcr_ptp_eftc
+ * PTP Egress FIFO Trap Clear
+ * The PTP_EGR_FIFO trap provides MTPPTR with clr according
+ * to this value. Default 0.
+ * Reserved when IB switches and when SwitchX/-2, Spectrum-2
+ * Access: RW
+ */
+MLXSW_ITEM32(reg, mogcr, ptp_eftc, 0x00, 0, 1);
+
 /* MTPPPC - Time Precision Packet Port Configuration
  * -------------------------------------------------
  * Reserved when Spectrum-2.
@@ -9340,11 +9368,11 @@ MLXSW_ITEM32(reg, mtpcpc, local_port, 0x00, 16, 8);
  */
 MLXSW_ITEM32(reg, mtpcpc, trap_message_type, 0x04, 0, 16);
 
-static inline void mlxsw_reg_mtpcpc_pack(char *payload, u8 local_port,
-					 u16 trap_message_type)
+static inline void mlxsw_reg_mtpcpc_pack(char *payload, bool pport,
+					 u8 local_port, u16 trap_message_type)
 {
 	MLXSW_REG_ZERO(mtpcpc, payload);
-	mlxsw_reg_mtpcpc_pport_set(payload, 1);
+	mlxsw_reg_mtpcpc_pport_set(payload, pport);
 	mlxsw_reg_mtpcpc_local_port_set(payload, local_port);
 	mlxsw_reg_mtpcpc_trap_message_type_set(payload, trap_message_type);
 }
