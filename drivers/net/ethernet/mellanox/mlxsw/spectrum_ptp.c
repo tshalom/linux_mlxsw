@@ -11,6 +11,7 @@
 #include <linux/if_ether.h>
 #include <linux/if_vlan.h>
 #include <linux/net_tstamp.h>
+#include <trace/events/mlxsw.h>
 
 #include "spectrum.h"
 #include "spectrum_ptp.h"
@@ -379,6 +380,11 @@ mlxsw_sp1_ptp_unmatched_save(struct mlxsw_sp *mlxsw_sp,
 	unmatched->timestamp = timestamp;
 	unmatched->gc_cycle = mlxsw_sp->ptp_state->gc_cycle + cycles;
 
+	trace_mlxsw_sp1_ptp_unmatched_save(mlxsw_sp, key.ingress,
+					   key.local_port, key.message_type,
+					   key.sequence_id, key.domain_number,
+					   timestamp);
+
 	conflict = rhashtable_lookup_get_insert_fast(&ptp_state->unmatched_ht,
 					    &unmatched->ht_node,
 					    mlxsw_sp1_ptp_unmatched_ht_params);
@@ -400,9 +406,22 @@ static int
 mlxsw_sp1_ptp_unmatched_remove(struct mlxsw_sp *mlxsw_sp,
 			       struct mlxsw_sp1_ptp_unmatched *unmatched)
 {
-	return rhashtable_remove_fast(&mlxsw_sp->ptp_state->unmatched_ht,
-				      &unmatched->ht_node,
-				      mlxsw_sp1_ptp_unmatched_ht_params);
+	int err;
+
+	err = rhashtable_remove_fast(&mlxsw_sp->ptp_state->unmatched_ht,
+				     &unmatched->ht_node,
+				     mlxsw_sp1_ptp_unmatched_ht_params);
+	if (err)
+		return err;
+
+	trace_mlxsw_sp1_ptp_unmatched_remove(mlxsw_sp,
+					     unmatched->key.ingress,
+					     unmatched->key.local_port,
+					     unmatched->key.message_type,
+					     unmatched->key.sequence_id,
+					     unmatched->key.domain_number,
+					     unmatched->timestamp);
+	return 0;
 }
 
 /* This function is called in the following scenarios:
@@ -677,6 +696,14 @@ mlxsw_sp1_ptp_ht_gc_collect(struct mlxsw_sp_ptp_state *ptp_state,
 	if (err)
 		/* The packet was matched with timestamp during the walk. */
 		goto out;
+
+	trace_mlxsw_sp1_ptp_unmatched_collect(ptp_state->mlxsw_sp,
+					      unmatched->key.ingress,
+					      unmatched->key.local_port,
+					      unmatched->key.message_type,
+					      unmatched->key.sequence_id,
+					      unmatched->key.domain_number,
+					      unmatched->timestamp);
 
 	/* mlxsw_sp1_ptp_unmatched_finish() invokes netif_receive_skb(). While
 	 * the comment at that function states that it can only be called in
