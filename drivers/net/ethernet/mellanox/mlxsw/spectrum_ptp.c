@@ -449,6 +449,13 @@ static void mlxsw_sp1_ptp_packet_finish(struct mlxsw_sp *mlxsw_sp,
 		return;
 	}
 
+	if (hwtstamps) {
+		if (ingress)
+			mlxsw_sp_port->ptp.stats.frames_receive.tstamped++;
+		else
+			mlxsw_sp_port->ptp.stats.frames_transmit.tstamped++;
+	}
+
 	if (ingress) {
 		if (hwtstamps)
 			*skb_hwtstamps(skb) = *hwtstamps;
@@ -600,11 +607,6 @@ static void mlxsw_sp1_ptp_got_packet(struct mlxsw_sp *mlxsw_sp,
 	if (!mlxsw_sp_port)
 		goto immediate;
 
-	types = ingress ? mlxsw_sp_port->ptp.ing_types :
-			  mlxsw_sp_port->ptp.egr_types;
-	if (!types)
-		goto immediate;
-
 	memset(&key, 0, sizeof(key));
 	key.local_port = local_port;
 	key.ingress = ingress;
@@ -613,6 +615,15 @@ static void mlxsw_sp1_ptp_got_packet(struct mlxsw_sp *mlxsw_sp,
 				 &key.sequence_id);
 	if (err)
 		goto immediate;
+
+	/* At this point we know it's a PTP packet, so bump the counters. */
+	if (ingress) {
+		types = mlxsw_sp_port->ptp.ing_types;
+		mlxsw_sp_port->ptp.stats.frames_receive.all++;
+	} else {
+		types = mlxsw_sp_port->ptp.egr_types;
+		mlxsw_sp_port->ptp.stats.frames_transmit.all++;
+	}
 
 	/* For packets whose timestamping was not enabled on this port, don't
 	 * bother trying to match the timestamp.
@@ -640,8 +651,13 @@ void mlxsw_sp1_ptp_got_timestamp(struct mlxsw_sp *mlxsw_sp, bool ingress,
 	if (!mlxsw_sp_port)
 		return;
 
-	types = ingress ? mlxsw_sp_port->ptp.ing_types :
-			  mlxsw_sp_port->ptp.egr_types;
+	if (ingress) {
+		types = mlxsw_sp_port->ptp.ing_types;
+		mlxsw_sp_port->ptp.stats.tstamps_receive.all++;
+	} else {
+		types = mlxsw_sp_port->ptp.egr_types;
+		mlxsw_sp_port->ptp.stats.tstamps_transmit.all++;
+	}
 
 	/* For message types whose timestamping was not enabled on this port,
 	 * don't bother with the timestamp.
@@ -676,6 +692,8 @@ static void
 mlxsw_sp1_ptp_ht_gc_collect(struct mlxsw_sp_ptp_state *ptp_state,
 			    struct mlxsw_sp1_ptp_unmatched *unmatched)
 {
+	struct mlxsw_sp_ptp_port_stats *stats;
+	struct mlxsw_sp_port *mlxsw_sp_port;
 	int err;
 
 	/* If an unmatched entry has an SKB, it has to be handed over to the
@@ -704,6 +722,22 @@ mlxsw_sp1_ptp_ht_gc_collect(struct mlxsw_sp_ptp_state *ptp_state,
 					      unmatched->key.sequence_id,
 					      unmatched->key.domain_number,
 					      unmatched->timestamp);
+
+	mlxsw_sp_port = ptp_state->mlxsw_sp->ports[unmatched->key.local_port];
+	if (mlxsw_sp_port) {
+		stats = &mlxsw_sp_port->ptp.stats;
+		if (unmatched->skb) {
+			if (unmatched->key.ingress)
+				stats->frames_receive.collected++;
+			else
+				stats->frames_transmit.collected++;
+		} else {
+			if (unmatched->key.ingress)
+				stats->tstamps_receive.collected++;
+			else
+				stats->tstamps_transmit.collected++;
+		}
+	}
 
 	/* mlxsw_sp1_ptp_unmatched_finish() invokes netif_receive_skb(). While
 	 * the comment at that function states that it can only be called in
@@ -977,6 +1011,156 @@ int mlxsw_sp1_ptp_get_ts_info(struct mlxsw_sp *mlxsw_sp,
 			   BIT(HWTSTAMP_FILTER_ALL);
 
 	return 0;
+}
+
+struct mlxsw_sp_ptp_port_stat {
+	char str[ETH_GSTRING_LEN];
+	ptrdiff_t offset;
+};
+
+#define MLXSW_SP_PTP_PORT_FRAME_STAT(FIELD)				\
+	{								\
+		.str = #FIELD,						\
+		.offset = offsetof(struct mlxsw_sp_ptp_port_frame_stats,\
+				    FIELD),				\
+	}
+
+static const struct mlxsw_sp_ptp_port_stat mlxsw_sp_ptp_port_frame_stats[] = {
+	MLXSW_SP_PTP_PORT_FRAME_STAT(all),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(tstamped),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(collected),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(sync),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(delay_req),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(pdelay_req),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(pdelay_resp),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(general),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(eth),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(ip),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(ip6),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(v1),
+	MLXSW_SP_PTP_PORT_FRAME_STAT(v2),
+};
+
+#undef MLXSW_SP_PTP_PORT_FRAME_STAT
+
+#define MLXSW_SP_PTP_PORT_FRAME_STATS_LEN \
+	ARRAY_SIZE(mlxsw_sp_ptp_port_frame_stats)
+
+#define MLXSW_SP_PTP_PORT_TSTAMP_STAT(FIELD)				 \
+	{								 \
+		.str = #FIELD,						 \
+		.offset = offsetof(struct mlxsw_sp_ptp_port_tstamp_stats,\
+				    FIELD),				 \
+	}
+
+static const struct mlxsw_sp_ptp_port_stat mlxsw_sp_ptp_port_tstamp_stats[] = {
+	MLXSW_SP_PTP_PORT_TSTAMP_STAT(all),
+	MLXSW_SP_PTP_PORT_TSTAMP_STAT(collected),
+	MLXSW_SP_PTP_PORT_TSTAMP_STAT(sync),
+	MLXSW_SP_PTP_PORT_TSTAMP_STAT(delay_req),
+	MLXSW_SP_PTP_PORT_TSTAMP_STAT(pdelay_req),
+	MLXSW_SP_PTP_PORT_TSTAMP_STAT(pdelay_resp),
+	MLXSW_SP_PTP_PORT_TSTAMP_STAT(general),
+};
+
+#define MLXSW_SP_PTP_PORT_TSTAMP_STATS_LEN \
+	ARRAY_SIZE(mlxsw_sp_ptp_port_tstamp_stats)
+
+#undef MLXSW_SP_PTP_PORT_TSTAMP_STAT
+
+struct mlxsw_sp_ptp_port_stat_suite {
+	char str[ETH_GSTRING_LEN];
+	ptrdiff_t offset;
+	const struct mlxsw_sp_ptp_port_stat *stats;
+	int count;
+};
+
+#define MLXSW_SP_PTP_STAT_SUITE_FIELD(FIELD, STATS, LEN)		\
+	{								\
+		.str = #FIELD,						\
+		.offset = offsetof(struct mlxsw_sp_ptp_port_stats, 	\
+				   FIELD),				\
+		.stats = STATS,						\
+		.count = LEN,						\
+	}
+
+static const struct mlxsw_sp_ptp_port_stat_suite mlxsw_sp_ptp_port_stats[] = {
+	MLXSW_SP_PTP_STAT_SUITE_FIELD(frames_transmit,
+				      mlxsw_sp_ptp_port_frame_stats,
+				      MLXSW_SP_PTP_PORT_FRAME_STATS_LEN),
+	MLXSW_SP_PTP_STAT_SUITE_FIELD(frames_receive,
+				      mlxsw_sp_ptp_port_frame_stats,
+				      MLXSW_SP_PTP_PORT_FRAME_STATS_LEN),
+	MLXSW_SP_PTP_STAT_SUITE_FIELD(tstamps_transmit,
+				      mlxsw_sp_ptp_port_tstamp_stats,
+				      MLXSW_SP_PTP_PORT_TSTAMP_STATS_LEN),
+	MLXSW_SP_PTP_STAT_SUITE_FIELD(tstamps_receive,
+				      mlxsw_sp_ptp_port_tstamp_stats,
+				      MLXSW_SP_PTP_PORT_TSTAMP_STATS_LEN),
+};
+
+#define MLXSW_SP_PTP_PORT_STATS_LEN \
+	ARRAY_SIZE(mlxsw_sp_ptp_port_stats)
+
+#undef MLXSW_SP_PTP_STAT_SUITE_FIELD
+
+int mlxsw_sp1_get_stats_count(void)
+{
+	int count = 0;
+	int i;
+
+	for (i = 0; i < MLXSW_SP_PTP_PORT_STATS_LEN; ++i)
+		count += mlxsw_sp_ptp_port_stats[i].count;
+
+	return count;
+}
+
+void
+__mlxsw_sp1_get_stats_strings(u8 **p,
+			      const struct mlxsw_sp_ptp_port_stat_suite *suite)
+{
+	int i;
+
+	for (i = 0; i < suite->count; i++) {
+		snprintf(*p, ETH_GSTRING_LEN, "ptp_%s_%s",
+			 suite->str, suite->stats[i].str);
+		*p += ETH_GSTRING_LEN;
+	}
+}
+
+void mlxsw_sp1_get_stats_strings(u8 **p)
+{
+	int i;
+
+	for (i = 0; i < MLXSW_SP_PTP_PORT_STATS_LEN; ++i)
+		__mlxsw_sp1_get_stats_strings(p, &mlxsw_sp_ptp_port_stats[i]);
+}
+
+void __mlxsw_sp1_get_stats(struct mlxsw_sp_port *mlxsw_sp_port,
+			   u64 *data, int data_index,
+			   const struct mlxsw_sp_ptp_port_stat_suite *suite)
+{
+	void *stats = &mlxsw_sp_port->ptp.stats;
+	ptrdiff_t offset;
+	int i;
+
+	data += data_index;
+	for (i = 0; i < suite->count; ++i) {
+		offset = suite->offset + suite->stats[i].offset;
+		*data++ = *(u64 *)(stats + offset);
+	}
+}
+
+void mlxsw_sp1_get_stats(struct mlxsw_sp_port *mlxsw_sp_port,
+			 u64 *data, int data_index)
+{
+	int i;
+
+	for (i = 0; i < MLXSW_SP_PTP_PORT_STATS_LEN; ++i) {
+		__mlxsw_sp1_get_stats(mlxsw_sp_port, data, data_index,
+				      &mlxsw_sp_ptp_port_stats[i]);
+		data_index += mlxsw_sp_ptp_port_stats[i].count;
+	}
 }
 
 int mlxsw_sp2_ptp_hwtstamp_get(struct mlxsw_sp_port *mlxsw_sp_port,

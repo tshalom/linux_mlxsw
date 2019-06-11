@@ -225,6 +225,40 @@ struct mlxsw_sp_port_xstats {
 	u64 tx_packets[IEEE_8021QAZ_MAX_TCS];
 };
 
+struct mlxsw_sp_ptp_port_frame_stats {
+	u64 all;
+	u64 tstamped;
+	u64 collected;
+	u64 sync;
+	u64 delay_req;
+	u64 delay_resp; // xxx this arrives on PTP1!
+	u64 pdelay_req;
+	u64 pdelay_resp;
+	u64 general; // xxx this arrives on PTP1!
+	u64 eth;
+	u64 ip;
+	u64 ip6;
+	u64 v1;
+	u64 v2;
+};
+
+struct mlxsw_sp_ptp_port_tstamp_stats {
+	u64 all;
+	u64 collected;
+	u64 sync;
+	u64 delay_req;
+	u64 pdelay_req;
+	u64 pdelay_resp;
+	u64 general;
+};
+
+struct mlxsw_sp_ptp_port_stats {
+	struct mlxsw_sp_ptp_port_frame_stats frames_transmit;
+	struct mlxsw_sp_ptp_port_frame_stats frames_receive;
+	struct mlxsw_sp_ptp_port_tstamp_stats tstamps_transmit;
+	struct mlxsw_sp_ptp_port_tstamp_stats tstamps_receive;
+};
+
 struct mlxsw_sp_port {
 	struct net_device *dev;
 	struct mlxsw_sp_port_pcpu_stats __percpu *pcpu_stats;
@@ -270,6 +304,7 @@ struct mlxsw_sp_port {
 		struct hwtstamp_config hwtstamp_config;
 		u16 ing_types;
 		u16 egr_types;
+		struct mlxsw_sp_ptp_port_stats stats;
 	} ptp;
 };
 
